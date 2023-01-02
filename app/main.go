@@ -13,7 +13,6 @@ import (
 
 type application struct {
 	config config.AppConfig
-	logger *log.Logger
 }
 
 func main() {
@@ -27,7 +26,6 @@ func main() {
 
 	app := &application{
 		config: cfg,
-		logger: logger,
 	}
 
 	// create the server
