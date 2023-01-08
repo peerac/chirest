@@ -1,62 +1,160 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"peerac/go-chi-rest-example/app/helper"
 	"peerac/go-chi-rest-example/app/logger"
 	"peerac/go-chi-rest-example/internal/data"
+
+	"gorm.io/gorm"
 )
 
-func CreateMovie(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateMovie(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Title   string   `json:"title"`
-		Year    int32    `json:"year"`
-		Runtime int32    `json:"runtime"`
-		Genres  []string `json:"genres"`
+		Title   string `json:"title"`
+		Year    int32  `json:"year"`
+		Runtime int32  `json:"runtime"`
 	}
 
 	err := helper.ReadJSON(w, r, &input)
 	if err != nil {
-		logger.ErrorResponse(w, r, http.StatusBadRequest, err.Error())
+		logger.BadRequestResponse(w, r, err)
 		return
 	}
 
-	fmt.Fprintf(w, "%+v\n", input)
+	movie := &data.Movie{
+		Title:   input.Title,
+		Year:    input.Year,
+		Runtime: input.Runtime,
+	}
+
+	err = h.models.Movies.AddMovie(movie)
+	if err != nil {
+		logger.ServerErrorResponse(w, r, err)
+		return
+	}
+
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("/v1/movies/%d", movie.ID))
+
+	err = helper.WriteJSON(w, http.StatusCreated, helper.Envelope{"movie": movie}, headers)
+	if err != nil {
+		logger.ServerErrorResponse(w, r, err)
+		return
+	}
 }
 
-func ShowMovie(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ShowMovie(w http.ResponseWriter, r *http.Request) {
 	id, err := helper.ReadIDParam(r)
 	if err != nil {
 		logger.NotFoundResponse(w, r)
 		return
 	}
 
-	movie := data.Movie{
-		ID:        id,
-		CreatedAt: time.Now(),
-		Title:     "Tenet",
-		Year:      2022,
-		Runtime:   130,
-		Genres:    []string{"action", "war", "thriller"},
+	movie, err := h.models.Movies.FetchMovieByID(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			logger.NotFoundResponse(w, r)
+		default:
+			logger.ServerErrorResponse(w, r, err)
+		}
+		return
 	}
 
 	err = helper.WriteJSON(w, http.StatusOK, helper.Envelope{"movie": movie}, nil)
 	if err != nil {
 		logger.ServerErrorResponse(w, r, err)
+		return
 	}
 }
 
-func ListMovies(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ListMovies(w http.ResponseWriter, r *http.Request) {
+	movies, err := h.models.Movies.FetchMovies()
+	if err != nil {
+		logger.ServerErrorResponse(w, r, err)
+		return
+	}
 
+	err = helper.WriteJSON(w, http.StatusOK, helper.Envelope{"movies": movies}, nil)
+	if err != nil {
+		logger.ServerErrorResponse(w, r, err)
+		return
+	}
 }
 
-func EditMovie(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) EditMovie(w http.ResponseWriter, r *http.Request) {
+	id, err := helper.ReadIDParam(r)
+	if err != nil {
+		logger.NotFoundResponse(w, r)
+		return
+	}
 
+	movie, err := h.models.Movies.FetchMovieByID(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			logger.NotFoundResponse(w, r)
+		default:
+			logger.ServerErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	var input struct {
+		Title   string `json:"title"`
+		Year    int32  `json:"year"`
+		Runtime int32  `json:"runtime"`
+	}
+
+	err = helper.ReadJSON(w, r, &input)
+	if err != nil {
+		logger.BadRequestResponse(w, r, err)
+		return
+	}
+
+	movie.Title = input.Title
+	movie.Year = input.Year
+	movie.Runtime = input.Runtime
+
+	err = h.models.Movies.UpdateMovie(movie)
+	if err != nil {
+		logger.ServerErrorResponse(w, r, err)
+		return
+	}
+
+	err = helper.WriteJSON(w, http.StatusOK, helper.Envelope{"message": "movie successfully updated"}, nil)
+	if err != nil {
+		logger.ServerErrorResponse(w, r, err)
+		return
+	}
 }
 
-func DeleteMovie(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteMovie(w http.ResponseWriter, r *http.Request) {
+	id, err := helper.ReadIDParam(r)
+	if err != nil {
+		logger.NotFoundResponse(w, r)
+		return
+	}
+
+	err = h.models.Movies.DeleteMovie(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			logger.NotFoundResponse(w, r)
+		default:
+			logger.ServerErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	err = helper.WriteJSON(w, http.StatusOK, helper.Envelope{"message": "movie successfully deleted"}, nil)
+	if err != nil {
+		logger.ServerErrorResponse(w, r, err)
+		return
+	}
 
 }

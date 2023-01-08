@@ -8,9 +8,10 @@ import (
 	"peerac/go-chi-rest-example/app/logger"
 
 	"github.com/go-chi/chi/v5"
+	"gorm.io/gorm"
 )
 
-func (app *application) routes() *chi.Mux {
+func (app *application) routes(db *gorm.DB) *chi.Mux {
 	r := chi.NewRouter()
 	r.NotFound(logger.NotFoundResponse)
 
@@ -30,9 +31,13 @@ func (app *application) routes() *chi.Mux {
 		}
 	})
 
+	handlers := handler.NewHandler(db)
 	// movies route
-	r.Post("/v1/movies", handler.CreateMovie)
-	r.Get("/v1/movies/{id}", handler.ShowMovie)
+	r.Post("/v1/movies", handlers.CreateMovie)
+	r.Get("/v1/movies", handlers.ListMovies)
+	r.Get("/v1/movies/{id}", handlers.ShowMovie)
+	r.Patch("/v1/movies/{id}", handlers.EditMovie)
+	r.Delete("/v1/movies/{id}", handlers.DeleteMovie)
 
 	return r
 }
