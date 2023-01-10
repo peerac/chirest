@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"peerac/go-chi-rest-example/internal/validator"
 
 	"peerac/go-chi-rest-example/app/helper"
 	"peerac/go-chi-rest-example/app/logger"
@@ -73,7 +74,22 @@ func (h *Handler) ShowMovie(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListMovies(w http.ResponseWriter, r *http.Request) {
-	movies, err := h.models.Movies.FetchMovies()
+	var filters data.Filters
+	v := validator.New()
+
+	qs := r.URL.Query()
+	filters.Page = helper.ReadInt(qs, "page", 1)
+	filters.PageSize = helper.ReadInt(qs, "page_size", 20)
+	filters.Sort = helper.ReadString(qs, "sort", "id")
+	filters.Order = helper.ReadString(qs, "order", "asc")
+	filters.SortSafeList = []string{"id", "title", "year", "runtime"}
+	filters.OrderSafeList = []string{"asc", "desc"}
+
+	if data.ValidateFilters(v, filters); !v.Valid() {
+		logger.FailedValidationResponse(w, r, v.Errors)
+	}
+
+	movies, err := h.models.Movies.FetchMovies(filters)
 	if err != nil {
 		logger.ServerErrorResponse(w, r, err)
 		return

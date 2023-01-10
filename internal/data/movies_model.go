@@ -1,6 +1,8 @@
 package data
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -27,9 +29,11 @@ func (m *MovieModel) AddMovie(movie *Movie) error {
 	return nil
 }
 
-func (m *MovieModel) FetchMovies() ([]Movie, error) {
-	var movies []Movie
-	err := m.DB.Find(&movies).Error
+func (m *MovieModel) FetchMovies(f Filters) ([]*Movie, error) {
+	condition := fmt.Sprintf("%s %s", f.Sort, strings.ToUpper(f.Order))
+	var movies []*Movie
+
+	err := m.DB.Debug().Order(condition).Limit(f.limit()).Offset(f.offset()).Find(&movies).Error
 	if err != nil {
 		return nil, err
 	}
