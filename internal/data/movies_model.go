@@ -29,16 +29,23 @@ func (m *MovieModel) AddMovie(movie *Movie) error {
 	return nil
 }
 
-func (m *MovieModel) FetchMovies(f Filters) ([]*Movie, error) {
+func (m *MovieModel) FetchMovies(f Filters) ([]*Movie, PageMeta, error) {
 	condition := fmt.Sprintf("%s %s", f.Sort, strings.ToUpper(f.Order))
 	var movies []*Movie
 
+	var totalRecord int64
+	m.DB.Debug().Find(&movies).Count(&totalRecord)
 	err := m.DB.Debug().Order(condition).Limit(f.limit()).Offset(f.offset()).Find(&movies).Error
 	if err != nil {
-		return nil, err
+		return nil, PageMeta{}, err
 	}
 
-	return movies, nil
+	if len(movies) == 0 {
+		return movies, PageMeta{}, nil
+	}
+
+	meta := calculatePageMeta(totalRecord, f.Page, f.PageSize)
+	return movies, meta, nil
 }
 
 func (m *MovieModel) FetchMovieByID(id int64) (*Movie, error) {

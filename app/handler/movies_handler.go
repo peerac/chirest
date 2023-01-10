@@ -89,13 +89,13 @@ func (h *Handler) ListMovies(w http.ResponseWriter, r *http.Request) {
 		logger.FailedValidationResponse(w, r, v.Errors)
 	}
 
-	movies, err := h.models.Movies.FetchMovies(filters)
+	movies, meta, err := h.models.Movies.FetchMovies(filters)
 	if err != nil {
 		logger.ServerErrorResponse(w, r, err)
 		return
 	}
 
-	err = helper.WriteJSON(w, http.StatusOK, helper.Envelope{"movies": movies}, nil)
+	err = helper.WriteJSON(w, http.StatusOK, helper.Envelope{"meta": meta, "movies": movies}, nil)
 	if err != nil {
 		logger.ServerErrorResponse(w, r, err)
 		return
